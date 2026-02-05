@@ -135,10 +135,14 @@ export function ClientAllProjectsPage() {
 
     try {
       setSubmitting(true)
+      const cleanedBudget = requestData.estimated_budget
+        ? Number(requestData.estimated_budget.replace('$', '').replace(',', ''))
+        : undefined
+
       const response: any = await api.requestStandaloneQuote({
         description: requestData.description,
-        estimated_budget: requestData.estimated_budget ? requestData.estimated_budget.replace('$', '').replace(',', '') : undefined,
-        preferred_timeline: requestData.preferred_timeline
+        estimated_budget: cleanedBudget,
+        preferred_timeline: requestData.preferred_timeline,
       })
 
       if (response.success) {
