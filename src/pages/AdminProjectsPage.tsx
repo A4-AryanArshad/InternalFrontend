@@ -12,6 +12,13 @@ export function AdminProjectsPage() {
   const [monthlyInvoices, setMonthlyInvoices] = useState<any[]>([])
   const [loadingMonthlyInvoices, setLoadingMonthlyInvoices] = useState(false)
 
+  // Frontend base URL used for client access links
+  const frontendBaseUrl =
+    import.meta.env.VITE_FRONTEND_URL ||
+    (typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://internal-frontend-two.vercel.app')
+
   // Load projects and monthly invoices on initial mount
   useEffect(() => {
     loadProjects()
@@ -159,7 +166,7 @@ export function AdminProjectsPage() {
               <input
                 type="text"
                 readOnly
-                value={`${window.location.origin}/client/all`}
+                value={`${frontendBaseUrl}/client/all`}
                 style={{
                   flex: 1,
                   minWidth: '300px',
@@ -174,7 +181,7 @@ export function AdminProjectsPage() {
               />
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/client/all`)
+                  navigator.clipboard.writeText(`${frontendBaseUrl}/client/all`)
                   alert('Link copied to clipboard!')
                 }}
                 style={{

@@ -46,6 +46,12 @@ export function ClientAccessPage() {
     )
   }
 
+  // Example base URL for the help text (matches current frontend origin in production)
+  const exampleBaseUrl =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://internal-frontend-two.vercel.app'
+
   return (
     <section className="page">
       <header className="page-header">
@@ -82,7 +88,7 @@ export function ClientAccessPage() {
                 padding: '0.2rem 0.4rem', 
                 borderRadius: '0.3rem',
                 fontSize: '0.85rem'
-              }}>http://localhost:5173/client/YOUR_PROJECT_ID</code></li>
+              }}>{`${exampleBaseUrl}/client/YOUR_PROJECT_ID`}</code></li>
               <li>Copy the project ID from the link and paste it below</li>
             </ol>
           </div>
