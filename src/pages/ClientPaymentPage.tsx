@@ -17,7 +17,7 @@ export function ClientPaymentPage() {
     }
 
     if (projectId) {
-      loadProject().    
+      loadProject()
     }
   }, [projectId, navigate])
 
