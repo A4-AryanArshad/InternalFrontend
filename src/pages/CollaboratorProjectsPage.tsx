@@ -90,23 +90,6 @@ export function CollaboratorProjectsPage() {
     }
   }, [invoiceType, selectedYear, selectedMonth])
 
-  const loadInvoiceType = async () => {
-    try {
-      // Get invoice type from collaborator profile via Stripe status API
-      const response: any = await api.getCollaboratorStripeStatus()
-      if (response.success && response.data.invoice_type) {
-        setInvoiceType(response.data.invoice_type)
-      } else {
-        // Default to 'per-project' if not set
-        setInvoiceType('per-project')
-      }
-    } catch (error) {
-      console.error('Failed to load invoice type:', error)
-      // Default to 'per-project' on error
-      setInvoiceType('per-project')
-    }
-  }
-
   const handleInvoiceTypeChange = async (type: 'per-project' | 'monthly') => {
     try {
       setLoadingInvoiceType(true)

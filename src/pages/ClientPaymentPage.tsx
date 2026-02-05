@@ -1,4 +1,4 @@
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
@@ -17,7 +17,7 @@ export function ClientPaymentPage() {
     }
 
     if (projectId) {
-      loadProject()
+      loadProject().    
     }
   }, [projectId, navigate])
 
@@ -62,7 +62,6 @@ export function ClientPaymentPage() {
 
     setProcessing(true)
     try {
-      const amount = getAmount()
       const serviceId = project.selected_service?._id || project.selected_service
       const customAmount = project.custom_quote_amount
 

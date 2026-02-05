@@ -15,7 +15,9 @@ class ApiService {
     localStorage.removeItem('auth_token')
   }
 
-  private async request<T>(
+  // Core request helper used across the app
+  // Exposed as public so pages can make custom calls while preserving typing
+  async request<T = any>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
