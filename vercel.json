@@ -1,21 +1,8 @@
 {
-  "//": "Vercel config for Vite SPA routing. Ensures /client/*, /admin/*, /collaborator/* and other paths are served by index.html so React Router can handle them.",
   "rewrites": [
-    {
-      "source": "/client/:path*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/admin/:path*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/collaborator/:path*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/client/(.*)", "destination": "/index.html" },
+    { "source": "/admin/(.*)", "destination": "/index.html" },
+    { "source": "/collaborator/(.*)", "destination": "/index.html" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }
