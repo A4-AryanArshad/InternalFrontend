@@ -336,25 +336,25 @@ export function ClientAllProjectsPage() {
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span style={{
                         padding: '0.375rem 0.75rem',
-                        background: `${getStatusColor(project.status)}15`,
-                        border: `1px solid ${getStatusColor(project.status)}30`,
+                        background: `${getStatusColor(user ? project.status : 'pending')}15`,
+                        border: `1px solid ${getStatusColor(user ? project.status : 'pending')}30`,
                         borderRadius: '0.5rem',
                         fontSize: '0.75rem',
-                        color: getStatusColor(project.status),
+                        color: getStatusColor(user ? project.status : 'pending'),
                         fontWeight: '500'
                       }}>
-                        {getStatusLabel(project.status)}
+                        {getStatusLabel(user ? project.status : 'pending')}
                       </span>
                       <span style={{
                         padding: '0.375rem 0.75rem',
-                        background: project.payment_status === 'paid' ? '#22c55e15' : '#facc1515',
-                        border: `1px solid ${project.payment_status === 'paid' ? '#22c55e30' : '#facc1530'}`,
+                        background: (user ? project.payment_status === 'paid' : false) ? '#22c55e15' : '#facc1515',
+                        border: `1px solid ${(user ? project.payment_status === 'paid' : false) ? '#22c55e30' : '#facc1530'}`,
                         borderRadius: '0.5rem',
                         fontSize: '0.75rem',
-                        color: project.payment_status === 'paid' ? '#22c55e' : '#facc15',
+                        color: (user ? project.payment_status === 'paid' : false) ? '#22c55e' : '#facc15',
                         fontWeight: '500'
                       }}>
-                        {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
+                        {(user && project.payment_status === 'paid') ? '✓ Paid' : 'Pending'}
                       </span>
                     </div>
                     <p style={{ 
@@ -362,7 +362,7 @@ export function ClientAllProjectsPage() {
                       fontSize: '0.75rem', 
                       color: '#94a3b8'
                     }}>
-                      Started {formatDate(project.created_at)}
+                      {user ? `Started ${formatDate(project.created_at)}` : 'Available'}
                     </p>
                   </div>
                 </Link>
