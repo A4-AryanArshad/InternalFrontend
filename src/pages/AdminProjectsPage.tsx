@@ -21,9 +21,18 @@ export function AdminProjectsPage() {
 
   // Load projects and monthly invoices on initial mount
   useEffect(() => {
-    loadProjects()
+    loadProjects(false)
     loadMonthlyInvoices() // Load monthly invoices on mount to get the count
   }, [])
+
+  // Auto-refresh when client pays or collaborator is assigned (no manual refresh needed)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadProjects(true)
+      if (activeTab === 'monthly-invoices') loadMonthlyInvoices()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [activeTab])
 
   // Reload monthly invoices when tab is clicked (in case new invoices were added)
   useEffect(() => {
@@ -46,15 +55,15 @@ export function AdminProjectsPage() {
     }
   }
 
-  const loadProjects = async () => {
+  const loadProjects = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const response: any = await api.request('/projects')
       if (response.success) {
         setProjects(response.data || [])
       }
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      if (!silent) console.error('Failed to load projects:', error)
     } finally {
       setLoading(false)
     }
@@ -568,15 +577,32 @@ export function AdminProjectsPage() {
                   }}
                 >
                   <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ 
-                      margin: '0 0 0.5rem', 
-                      fontSize: '1.25rem', 
-                      fontWeight: '600',
-                      color: '#0f172a',
-                      lineHeight: '1.3'
-                    }}>
-                      {project.name}
-                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <h4 style={{ 
+                        margin: 0, 
+                        fontSize: '1.25rem', 
+                        fontWeight: '600',
+                        color: '#0f172a',
+                        lineHeight: '1.3'
+                      }}>
+                        {project.name}
+                      </h4>
+                      {!project.assigned_collaborator && (
+                        <span style={{
+                          padding: '0.25rem 0.6rem',
+                          background: 'rgba(234, 88, 12, 0.15)',
+                          border: '1px solid rgba(234, 88, 12, 0.4)',
+                          borderRadius: '999px',
+                          fontSize: '0.7rem',
+                          fontWeight: '600',
+                          color: '#ea580c',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.02em'
+                        }}>
+                          New
+                        </span>
+                      )}
+                    </div>
                     <p style={{ 
                       margin: 0, 
                       fontSize: '0.875rem', 
@@ -696,7 +722,7 @@ export function AdminProjectsPage() {
               })
               
               if (response.success) {
-                await loadProjects()
+                await loadProjects(false)
                 setIsNewProjectOpen(false)
                 const projectId = response.data._id || response.data.id
                 const clientLink = data.project_type === 'simple' 
