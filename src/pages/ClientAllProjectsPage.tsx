@@ -32,55 +32,37 @@ export function ClientAllProjectsPage() {
       if (!silent) setLoading(true)
       setError(null)
 
-      // Always load simple projects (public, no auth required)
-      const simpleProjectsResponse: any = await api.getSimpleProjects()
-      let simpleProjects: any[] = []
-      if (simpleProjectsResponse.success) {
-        simpleProjects = simpleProjectsResponse.data || []
-      }
-
-      // If user is authenticated, also load their custom projects
       if (api.isAuthenticated()) {
+        // Logged-in user: show ONLY their own projects (by client_email), not the public catalog
         try {
-          // Get current user
           const userResponse: any = await api.getCurrentUser()
           if (userResponse.success) {
             setUser(userResponse.data)
           }
-
-          // Load custom projects for authenticated user
-          const customProjectsResponse: any = await api.getMyProjects()
-          let customProjects: any[] = []
-          if (customProjectsResponse.success) {
-            customProjects = customProjectsResponse.data || []
+          const myProjectsResponse: any = await api.getMyProjects()
+          let myProjects: any[] = []
+          if (myProjectsResponse.success) {
+            myProjects = myProjectsResponse.data || []
           }
-
-          // Combine simple projects and custom projects
-          // Remove duplicates (in case a simple project is also in custom projects)
-          const allProjects = [...simpleProjects, ...customProjects]
-          const uniqueProjects = allProjects.filter((project, index, self) =>
-            index === self.findIndex((p) => (p._id || p.id) === (project._id || project.id))
+          const sorted = myProjects.sort(
+            (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           )
-          // Sort: custom projects first, then simple projects
-          const sortedProjects = uniqueProjects.sort((a, b) => {
-            // Custom projects come first
-            if (a.project_type === 'custom' && b.project_type !== 'custom') return -1
-            if (a.project_type !== 'custom' && b.project_type === 'custom') return 1
-            // Within same type, sort by creation date (newest first)
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          })
-          setProjects(sortedProjects)
+          setProjects(sorted)
         } catch (err: any) {
-          // If auth fails, just show simple projects
-          console.warn('Failed to load user projects:', err)
-          setProjects(simpleProjects)
+          console.warn('Failed to load your projects:', err)
+          setProjects([])
         }
       } else {
-        // Not authenticated - only show simple projects (sorted by date, newest first)
-        const sortedSimpleProjects = simpleProjects.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        // Not logged in: show public simple projects (catalog) so visitors can browse
+        const simpleProjectsResponse: any = await api.getSimpleProjects()
+        let simpleProjects: any[] = []
+        if (simpleProjectsResponse.success) {
+          simpleProjects = simpleProjectsResponse.data || []
+        }
+        const sorted = simpleProjects.sort(
+          (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
-        setProjects(sortedSimpleProjects)
+        setProjects(sorted)
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load projects')
