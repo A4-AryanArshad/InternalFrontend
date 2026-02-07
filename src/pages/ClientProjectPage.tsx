@@ -107,7 +107,6 @@ export function ClientProjectPage() {
             <span className="badge" style={{ background: 'rgba(29, 78, 216, 0.1)', borderColor: 'rgba(29, 78, 216, 0.3)' }}>
               Project #{project._id ? project._id.toString().slice(0, 8) : project.id?.slice(0, 8) || 'N/A'}
             </span>
-            <span className="badge">Client: {project.client_name}</span>
           </div>
 
           <div style={{ marginTop: '1.5rem' }}>
