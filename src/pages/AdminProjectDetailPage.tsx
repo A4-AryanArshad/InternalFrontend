@@ -661,22 +661,28 @@ export function AdminProjectDetailPage() {
 
           <div>
             <strong style={{ display: 'block', marginBottom: '0.6rem' }}>Assign Collaborator</strong>
-            <button
-              onClick={() => setIsCollaboratorModalOpen(true)}
-              style={{
-                width: '100%',
-                padding: '0.6rem',
-                background: 'rgba(59, 130, 246, 0.2)',
-                color: '#3b82f6',
-                border: '1px solid rgba(59, 130, 246, 0.4)',
-                borderRadius: '0.4rem',
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                fontWeight: '500'
-              }}
-            >
-              {getCollaboratorName() || 'Assign Collaborator'} →
-            </button>
+            {project.payment_status !== 'paid' ? (
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280', padding: '0.5rem 0' }}>
+                Assign a collaborator after the client has paid.
+              </p>
+            ) : (
+              <button
+                onClick={() => setIsCollaboratorModalOpen(true)}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  color: '#3b82f6',
+                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                  borderRadius: '0.4rem',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                {getCollaboratorName() || 'Assign Collaborator'} →
+              </button>
+            )}
           </div>
 
           {/* Invoice Approval Section */}
