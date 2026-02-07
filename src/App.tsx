@@ -214,7 +214,6 @@ function HomePage() {
 }
 
 function Navbar() {
-  const navigate = useNavigate()
   const location = useLocation()
   const [userRole, setUserRole] = useState<'client' | 'admin' | 'collaborator' | null>(null)
 
@@ -243,12 +242,9 @@ function Navbar() {
     api.logout()
     clearUserData()
     setUserRole(null)
-    // Redirect based on current location
-    if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/collaborator')) {
-      navigate('/')
-    } else {
-      navigate('/client/all')
-    }
+    // Full page refresh so all state (e.g. project lists) is cleared
+    const target = location.pathname.startsWith('/admin') || location.pathname.startsWith('/collaborator') ? '/' : '/client/all'
+    window.location.href = target
   }
 
   return (
