@@ -377,6 +377,33 @@ class ApiService {
   async getMonthlyInvoices() {
     return this.request('/projects/invoices/monthly')
   }
+
+  // Accepted invoices overview + amount paid/left per collaborator (admin)
+  async getAcceptedInvoicesOverview() {
+    return this.request<{
+      success: boolean
+      data: {
+        acceptedInvoices: Array<{
+          id: string
+          type: 'per-project' | 'monthly'
+          label: string
+          collaboratorName: string
+          amount: number
+          paid: boolean
+          paidAt?: string
+          projectId?: string
+          monthlyInvoiceId?: string
+          month?: string
+        }>
+        byCollaborator: Array<{
+          collaboratorId: string
+          collaboratorName: string
+          totalPaid: number
+          totalLeftToPay: number
+        }>
+      }
+    }>('/projects/invoices/accepted-overview')
+  }
 }
 
 export const api = new ApiService()
