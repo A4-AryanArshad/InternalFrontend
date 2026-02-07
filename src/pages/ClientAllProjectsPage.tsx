@@ -6,6 +6,7 @@ import { Modal } from '../components/Modal'
 export function ClientAllProjectsPage() {
   const navigate = useNavigate()
   const [projects, setProjects] = useState<any[]>([])
+  const [myProjectsById, setMyProjectsById] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
@@ -33,27 +34,42 @@ export function ClientAllProjectsPage() {
       setError(null)
 
       if (api.isAuthenticated()) {
-        // Logged-in user: show ONLY their own projects (by client_email), not the public catalog
+        // Logged-in user: show ALL projects (catalog), and for each show whether this user paid or not
         try {
           const userResponse: any = await api.getCurrentUser()
           if (userResponse.success) {
             setUser(userResponse.data)
           }
-          const myProjectsResponse: any = await api.getMyProjects()
-          let myProjects: any[] = []
-          if (myProjectsResponse.success) {
-            myProjects = myProjectsResponse.data || []
+          const [simpleRes, myProjectsResponse] = await Promise.all([
+            api.getSimpleProjects(),
+            api.getMyProjects(),
+          ])
+          let catalog: any[] = []
+          if ((simpleRes as any).success) {
+            catalog = (simpleRes as any).data || []
           }
-          const sorted = myProjects.sort(
-            (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          const byId: Record<string, any> = {}
+          if ((myProjectsResponse as any).success) {
+            const myProjects = (myProjectsResponse as any).data || []
+            myProjects.forEach((p: any) => {
+              const id = p._id || p.id
+              if (id) byId[id] = p
+            })
+          }
+          setMyProjectsById(byId)
+          const sorted = catalog.sort(
+            (a: any, b: any) => new Date((b.created_at || 0)).getTime() - new Date((a.created_at || 0)).getTime()
           )
           setProjects(sorted)
         } catch (err: any) {
-          console.warn('Failed to load your projects:', err)
+          console.warn('Failed to load projects:', err)
           setProjects([])
+          setMyProjectsById({})
         }
       } else {
         // Not logged in: show public simple projects (catalog) so visitors can browse
+        setMyProjectsById({})
+        setUser(null)
         const simpleProjectsResponse: any = await api.getSimpleProjects()
         let simpleProjects: any[] = []
         if (simpleProjectsResponse.success) {
@@ -255,10 +271,16 @@ export function ClientAllProjectsPage() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
               gap: '1.5rem'
             }}>
-              {projects.map((project) => (
+              {projects.map((project) => {
+                const projectId = project._id || project.id
+                const myProject = user ? myProjectsById[projectId] : null
+                const status = user ? (myProject?.status ?? 'pending') : 'pending'
+                const paymentStatus = user ? (myProject?.payment_status ?? 'pending') : 'pending'
+                const startedAt = myProject?.created_at
+                return (
                 <Link
-                  key={project._id || project.id}
-                  to={`/client/${project._id || project.id}`}
+                  key={projectId}
+                  to={`/client/${projectId}`}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -336,25 +358,25 @@ export function ClientAllProjectsPage() {
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span style={{
                         padding: '0.375rem 0.75rem',
-                        background: `${getStatusColor(user ? project.status : 'pending')}15`,
-                        border: `1px solid ${getStatusColor(user ? project.status : 'pending')}30`,
+                        background: `${getStatusColor(status)}15`,
+                        border: `1px solid ${getStatusColor(status)}30`,
                         borderRadius: '0.5rem',
                         fontSize: '0.75rem',
-                        color: getStatusColor(user ? project.status : 'pending'),
+                        color: getStatusColor(status),
                         fontWeight: '500'
                       }}>
-                        {getStatusLabel(user ? project.status : 'pending')}
+                        {getStatusLabel(status)}
                       </span>
                       <span style={{
                         padding: '0.375rem 0.75rem',
-                        background: (user ? project.payment_status === 'paid' : false) ? '#22c55e15' : '#facc1515',
-                        border: `1px solid ${(user ? project.payment_status === 'paid' : false) ? '#22c55e30' : '#facc1530'}`,
+                        background: paymentStatus === 'paid' ? '#22c55e15' : '#facc1515',
+                        border: `1px solid ${paymentStatus === 'paid' ? '#22c55e30' : '#facc1530'}`,
                         borderRadius: '0.5rem',
                         fontSize: '0.75rem',
-                        color: (user ? project.payment_status === 'paid' : false) ? '#22c55e' : '#facc15',
+                        color: paymentStatus === 'paid' ? '#22c55e' : '#facc15',
                         fontWeight: '500'
                       }}>
-                        {(user && project.payment_status === 'paid') ? '✓ Paid' : 'Pending'}
+                        {user ? (paymentStatus === 'paid' ? '✓ Paid' : 'Unpaid') : 'Available'}
                       </span>
                     </div>
                     <p style={{ 
@@ -362,11 +384,12 @@ export function ClientAllProjectsPage() {
                       fontSize: '0.75rem', 
                       color: '#94a3b8'
                     }}>
-                      {user ? `Started ${formatDate(project.created_at)}` : 'Available'}
+                      {user ? (startedAt ? `Started ${formatDate(startedAt)}` : 'Not started') : 'Sign up or log in to see your projects'}
                     </p>
                   </div>
                 </Link>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
