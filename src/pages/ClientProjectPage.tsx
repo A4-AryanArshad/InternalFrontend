@@ -50,7 +50,22 @@ export function ClientProjectPage() {
       }
     } catch (err: any) {
       console.error('Error loading project:', err)
-      setError(err.message || 'Failed to load project. Make sure the backend is running on http://localhost:3001')
+      const message = err?.message || 'Failed to load project. Make sure the backend is running.'
+      if (message.toLowerCase().includes('do not have access')) {
+        try {
+          const startRes = await api.startFromCatalog(projectId!)
+          if (startRes.success && startRes.data) {
+            const openableId = (startRes.data as any)._id || (startRes.data as any).id
+            if (openableId) {
+              navigate(`/client/${openableId}`, { replace: true })
+              return
+            }
+          }
+        } catch (startErr: any) {
+          console.warn('Could not start from catalog:', startErr)
+        }
+      }
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -70,10 +85,22 @@ export function ClientProjectPage() {
   }
 
   if (error || !project) {
+    const isAccessDenied = error?.toLowerCase().includes('do not have access')
+    const btnBase = {
+      display: 'inline-block',
+      marginTop: '0.75rem',
+      padding: '0.6rem 1.2rem',
+      color: '#fff',
+      borderRadius: '0.5rem',
+      textDecoration: 'none' as const,
+      fontWeight: '500',
+      fontSize: '0.9rem',
+      marginRight: '0.75rem',
+    }
     return (
       <section className="page">
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <h2>Project Not Found</h2>
+        <div style={{ textAlign: 'center', padding: '3rem', maxWidth: '420px', margin: '0 auto' }}>
+          <h2>{isAccessDenied ? "Can't open this project" : 'Project Not Found'}</h2>
           <p style={{ color: '#6b7280', marginTop: '1rem' }}>
             {error || 'The project link is invalid or has expired.'}
           </p>
@@ -82,9 +109,42 @@ export function ClientProjectPage() {
               Project ID: {projectId}
             </p>
           )}
-          <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '1rem' }}>
-            Make sure the backend server is running on http://localhost:3001
-          </p>
+          {!isAccessDenied && (
+            <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '1rem' }}>
+              Make sure the backend server is running.
+            </p>
+          )}
+          {isAccessDenied && (
+            <div style={{
+              marginTop: '1.5rem',
+              padding: '1.25rem',
+              background: 'rgba(249, 115, 22, 0.08)',
+              border: '1px solid rgba(249, 115, 22, 0.25)',
+              borderRadius: '0.75rem',
+              textAlign: 'left',
+            }}>
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.95rem', color: '#0f172a', fontWeight: '500' }}>
+                You can still submit requirements and buy a project or service:
+              </p>
+              <ul style={{ margin: '0 0 1rem', paddingLeft: '1.25rem', color: '#475569', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                <li>Choose another project from the list and complete briefing & payment</li>
+                <li>Request a custom offer and we’ll create a project for you</li>
+              </ul>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+                <Link to="/client/all" style={{ ...btnBase, background: '#f97316' }}>
+                  View all projects →
+                </Link>
+                <Link to="/client/all" style={{ ...btnBase, background: '#1d4ed8' }} state={{ openRequestModal: true }}>
+                  Request custom offer
+                </Link>
+              </div>
+            </div>
+          )}
+          {!isAccessDenied && (
+            <Link to="/client/all" style={{ ...btnBase, background: '#f97316', marginRight: 0 }}>
+              ← Back to all projects
+            </Link>
+          )}
         </div>
       </section>
     )
@@ -96,8 +156,7 @@ export function ClientProjectPage() {
         <div className="page-kicker">Welcome</div>
         <h1 className="page-title">{project.name}</h1>
         <p className="page-subtitle">
-          Thank you for choosing our services. Let's get started by selecting your service package and
-          submitting your design brief.
+          Submit your requirements (briefing) and pay to get started. Choose your service, then we’ll guide you through the rest.
         </p>
       </header>
 
@@ -114,7 +173,7 @@ export function ClientProjectPage() {
               Project Overview
             </h3>
             <p style={{ color: '#4b5563', lineHeight: '1.6', marginBottom: '1.2rem' }}>
-              We're excited to work with you on this project. Please select your service package or confirm your custom quote.
+              We're excited to work with you. You’ll select your service, submit your requirements (briefing), and then pay to begin.
             </p>
 
             {/* Show client's original description for custom projects */}
@@ -183,7 +242,7 @@ export function ClientProjectPage() {
               marginBottom: '1.5rem'
             }}>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#1d4ed8' }}>
-                <strong>Next Step:</strong> Select your service package or confirm your custom quote
+                <strong>Next Step:</strong> Select your service, then submit your requirements and pay
               </p>
             </div>
 
@@ -245,10 +304,10 @@ export function ClientProjectPage() {
               <span style={{ color: '#1d4ed8' }}>●</span> <span style={{ color: '#0f172a' }}>Service Selection</span>
             </div>
             <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ color: '#64748b' }}>○</span> <span style={{ color: '#4b5563' }}>Payment</span>
+              <span style={{ color: '#64748b' }}>○</span> <span style={{ color: '#4b5563' }}>Submit requirements (briefing)</span>
             </div>
             <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ color: '#64748b' }}>○</span> <span style={{ color: '#4b5563' }}>Briefing Submission</span>
+              <span style={{ color: '#64748b' }}>○</span> <span style={{ color: '#4b5563' }}>Payment</span>
             </div>
             <div style={{ marginBottom: '0.5rem' }}>
               <span style={{ color: '#64748b' }}>○</span> <span style={{ color: '#4b5563' }}>Project In Progress</span>

@@ -21,12 +21,15 @@ export function CollaboratorProjectDetailPage() {
     }
   }, [projectId])
 
-  // Auto-refresh when admin updates status or payment
+  // Auto-refresh when admin approves/rejects invoice or updates status (no manual refresh needed)
+  // Poll more often when invoice is pending so accept/reject shows up quickly
   useEffect(() => {
     if (!projectId) return
-    const interval = setInterval(() => loadProjectData(true), 30000)
+    const isPendingInvoice = project?.invoice_status === 'pending'
+    const ms = isPendingInvoice ? 8000 : 20000
+    const interval = setInterval(() => loadProjectData(true), ms)
     return () => clearInterval(interval)
-  }, [projectId])
+  }, [projectId, project?.invoice_status])
 
   const loadProjectData = async (silent = false) => {
     try {

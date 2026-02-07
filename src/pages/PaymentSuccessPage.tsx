@@ -323,7 +323,7 @@ export function PaymentSuccessPage() {
               View Project Dashboard →
             </Link>
             <Link
-              to={`/client/${projectId}`}
+              to="/client/all"
               style={{
                 flex: 1,
                 minWidth: '200px',

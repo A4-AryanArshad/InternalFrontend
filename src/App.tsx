@@ -15,6 +15,7 @@ import { AdminProjectsPage } from './pages/AdminProjectsPage'
 import { AdminProjectDetailPage } from './pages/AdminProjectDetailPage'
 import { AdminCollaboratorsPage } from './pages/AdminCollaboratorsPage'
 import { AdminCustomQuotesPage } from './pages/AdminCustomQuotesPage'
+import { AdminNotificationsPage } from './pages/AdminNotificationsPage'
 import { CollaboratorProjectsPage } from './pages/CollaboratorProjectsPage'
 import { CollaboratorProjectDetailPage } from './pages/CollaboratorProjectDetailPage'
 import { StripeConnectReturnPage } from './pages/StripeConnectReturnPage'
@@ -214,37 +215,75 @@ function HomePage() {
 }
 
 function Navbar() {
+  const navigate = useNavigate()
   const location = useLocation()
   const [userRole, setUserRole] = useState<'client' | 'admin' | 'collaborator' | null>(null)
+  const [notificationUnread, setNotificationUnread] = useState(0)
+  const prevUnreadRef = { current: -1 }
 
   useEffect(() => {
-    // Get user role on mount and when storage changes
     const updateRole = () => {
       const role = getUserRole()
       setUserRole(role)
     }
-    
     updateRole()
-    
-    // Listen for storage changes (e.g., login/logout in another tab)
     window.addEventListener('storage', updateRole)
-    
-    // Also check periodically in case token is updated
     const interval = setInterval(updateRole, 1000)
-    
     return () => {
       window.removeEventListener('storage', updateRole)
       clearInterval(interval)
     }
   }, [])
 
+  // Poll notification count for admin (WhatsApp-like badge)
+  useEffect(() => {
+    if (userRole !== 'admin' || !api.isAuthenticated()) {
+      setNotificationUnread(0)
+      return
+    }
+    const fetchCount = () => {
+      api.getNotificationUnreadCount().then((res: any) => {
+        if (res?.success && res?.data?.unreadCount != null) {
+          const newCount = res.data.unreadCount
+          if (prevUnreadRef.current >= 0 && newCount > prevUnreadRef.current && !location.pathname.startsWith('/admin/notifications')) {
+            try {
+              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+              const o = ctx.createOscillator()
+              const g = ctx.createGain()
+              o.connect(g)
+              g.connect(ctx.destination)
+              o.frequency.value = 800
+              g.gain.setValueAtTime(0.15, ctx.currentTime)
+              g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15)
+              o.start(ctx.currentTime)
+              o.stop(ctx.currentTime + 0.15)
+            } catch (_) {}
+          }
+          prevUnreadRef.current = newCount
+          setNotificationUnread(newCount)
+        }
+      }).catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 12000)
+    const onUpdated = () => fetchCount()
+    window.addEventListener('admin-notifications-updated', onUpdated)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('admin-notifications-updated', onUpdated)
+    }
+  }, [userRole])
+
   const handleLogout = () => {
     api.logout()
     clearUserData()
     setUserRole(null)
-    // Full page refresh so all state (e.g. project lists) is cleared
-    const target = location.pathname.startsWith('/admin') || location.pathname.startsWith('/collaborator') ? '/' : '/client/all'
-    window.location.href = target
+    // Redirect based on current location
+    if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/collaborator')) {
+      navigate('/')
+    } else {
+      navigate('/client/all')
+    }
   }
 
   return (
@@ -264,9 +303,52 @@ function Navbar() {
           </>
         )}
         {userRole === 'admin' && (
-          <Link className="pill pill-admin" to="/admin/projects">
-            Admin
-          </Link>
+          <>
+            <Link className="pill pill-admin" to="/admin/projects">
+              Admin
+            </Link>
+            <Link
+              to="/admin/notifications"
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0.5rem 1rem',
+                background: 'rgba(59, 130, 246, 0.1)',
+                color: '#1d4ed8',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '999px',
+                fontSize: '0.85rem',
+                fontWeight: '500',
+                textDecoration: 'none',
+                marginLeft: '0.5rem'
+              }}
+            >
+              Notifications
+              {notificationUnread > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    minWidth: '18px',
+                    height: '18px',
+                    padding: '0 5px',
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: '0.7rem',
+                    fontWeight: '700',
+                    borderRadius: '999px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {notificationUnread > 99 ? '99+' : notificationUnread}
+                </span>
+              )}
+            </Link>
+          </>
         )}
         {userRole === 'collaborator' && (
           <Link className="pill pill-collab" to="/collaborator/projects">
@@ -363,6 +445,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminCollaboratorsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/notifications"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminNotificationsPage />
                 </ProtectedRoute>
               }
             />

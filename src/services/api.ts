@@ -120,6 +120,14 @@ class ApiService {
     return this.request('/projects/my-projects')
   }
 
+  /** Get or create an unclaimed project so the user can submit requirements and pay (when the one they clicked is already taken). */
+  async startFromCatalog(projectId: string) {
+    return this.request<{ success: boolean; data: { _id: string; [k: string]: unknown } }>('/projects/start-from-catalog', {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    })
+  }
+
   // Service endpoints
   async getServices() {
     return this.request(`/services`)
@@ -378,31 +386,21 @@ class ApiService {
     return this.request('/projects/invoices/monthly')
   }
 
-  // Accepted invoices overview + amount paid/left per collaborator (admin)
-  async getAcceptedInvoicesOverview() {
-    return this.request<{
-      success: boolean
-      data: {
-        acceptedInvoices: Array<{
-          id: string
-          type: 'per-project' | 'monthly'
-          label: string
-          collaboratorName: string
-          amount: number
-          paid: boolean
-          paidAt?: string
-          projectId?: string
-          monthlyInvoiceId?: string
-          month?: string
-        }>
-        byCollaborator: Array<{
-          collaboratorId: string
-          collaboratorName: string
-          totalPaid: number
-          totalLeftToPay: number
-        }>
-      }
-    }>('/projects/invoices/accepted-overview')
+  // Admin notifications (invoice uploaded, etc.)
+  async getNotifications() {
+    return this.request<{ success: boolean; data: { notifications: any[]; unreadCount: number } }>('/notifications')
+  }
+
+  async getNotificationUnreadCount() {
+    return this.request<{ success: boolean; data: { unreadCount: number } }>('/notifications/unread-count')
+  }
+
+  async markNotificationRead(notificationId: string) {
+    return this.request(`/notifications/${notificationId}/read`, { method: 'PATCH' })
+  }
+
+  async markAllNotificationsRead() {
+    return this.request('/notifications/read-all', { method: 'PATCH' })
   }
 }
 

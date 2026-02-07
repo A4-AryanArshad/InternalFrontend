@@ -1,12 +1,12 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import { Modal } from '../components/Modal'
 
 export function ClientDashboardPage() {
   const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
   const [project, setProject] = useState<any>(null)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const [briefing, setBriefing] = useState<any>(null)
   const [images, setImages] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,40 +30,26 @@ export function ClientDashboardPage() {
   const loadProjectData = async (silent = false) => {
     try {
       if (!silent) setLoading(true)
-      const [response, userResponse] = await Promise.all([
-        api.getProjectDetails(projectId!),
-        api.isAuthenticated() ? api.getCurrentUser() : Promise.resolve(null),
-      ])
-      const res = response as any
-      if (res?.success) {
-        setProject(res.data.project)
-        setBriefing(res.data.briefing)
-        setImages(res.data.images || [])
+      const response: any = await api.getProjectDetails(projectId!)
+      if (response.success) {
+        setProject(response.data.project)
+        setBriefing(response.data.briefing)
+        setImages(response.data.images || [])
       }
-      if (userResponse && (userResponse as any).success) {
-        setCurrentUser((userResponse as any).data)
-      } else {
-        setCurrentUser(null)
-      }
-    } catch (error) {
+    } catch (error: any) {
       if (!silent) console.error('Failed to load project:', error)
+      if (error?.message?.toLowerCase().includes('do not have access')) {
+        navigate('/client/all')
+        if (!silent) alert('You do not have access to this project. It belongs to another client.')
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const isOwnProject = (): boolean => {
-    if (!project || !currentUser) return false
-    const emailMatch = project.client_email && currentUser.email && project.client_email.toLowerCase() === currentUser.email.toLowerCase()
-    const userMatch = project.client_user && currentUser.id && (String(project.client_user._id || project.client_user) === String(currentUser.id))
-    return Boolean(emailMatch || userMatch)
-  }
-
   const getStatusSteps = () => {
     if (!project) return []
-    const owned = isOwnProject()
-    const paymentStatus = owned ? project.payment_status : 'pending'
-    const status = owned ? project.status : 'pending'
+    
     const notes = (project.status_notes || {}) as any
 
     const steps = []
@@ -75,42 +61,42 @@ export function ClientDashboardPage() {
     })
     steps.push({ 
       label: 'Payment Confirmed', 
-      status: paymentStatus === 'paid' ? 'completed' : 'pending',
-      date: paymentStatus === 'paid' ? 'Completed' : 'Pending',
+      status: project.payment_status === 'paid' ? 'completed' : 'pending',
+      date: project.payment_status === 'paid' ? 'Completed' : 'Pending',
       note: undefined
     })
     steps.push({ 
       label: 'Project In Progress', 
-      status: status === 'in_progress'
+      status: project.status === 'in_progress'
         ? 'active'
-        : (status === 'review' || status === 'completed')
+        : (project.status === 'review' || project.status === 'completed')
         ? 'completed'
         : 'pending',
-      date: status === 'in_progress'
+      date: project.status === 'in_progress'
         ? 'In Progress'
-        : status === 'review'
+        : project.status === 'review'
         ? 'Completed'
-        : status === 'completed'
+        : project.status === 'completed'
         ? 'Completed'
         : 'Pending',
       note: notes.in_progress
     })
     steps.push({ 
       label: 'Review Stage', 
-      status: status === 'review' ? 'active' : status === 'completed' ? 'completed' : 'pending',
-      date: status === 'review' ? 'In Review' : status === 'completed' ? 'Completed' : 'Pending',
+      status: project.status === 'review' ? 'active' : project.status === 'completed' ? 'completed' : 'pending',
+      date: project.status === 'review' ? 'In Review' : project.status === 'completed' ? 'Completed' : 'Pending',
       note: notes.review
     })
     steps.push({ 
       label: 'Revision', 
-      status: status === 'revision' ? 'active' : 'pending',
-      date: status === 'revision' ? 'In Revision' : 'Pending',
+      status: project.status === 'revision' ? 'active' : 'pending',
+      date: project.status === 'revision' ? 'In Revision' : 'Pending',
       note: notes.revision
     })
     steps.push({ 
       label: 'Delivery', 
-      status: status === 'completed' ? 'completed' : 'pending',
-      date: status === 'completed' ? 'Delivered' : 'Pending',
+      status: project.status === 'completed' ? 'completed' : 'pending',
+      date: project.status === 'completed' ? 'Delivered' : 'Pending',
       note: notes.completed
     })
     
@@ -200,6 +186,27 @@ export function ClientDashboardPage() {
   return (
     <section className="page">
       <header className="page-header">
+        <Link
+          to="/client/all"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            fontSize: '0.9rem',
+            color: '#64748b',
+            textDecoration: 'none',
+            marginBottom: '0.5rem',
+            fontWeight: '500',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#f97316'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#64748b'
+          }}
+        >
+          ← View all projects
+        </Link>
         <div className="page-kicker">Client Dashboard</div>
         <h1 className="page-title">{project.name}</h1>
         <p className="page-subtitle">
@@ -209,40 +216,8 @@ export function ClientDashboardPage() {
 
       <div className="page-body">
         <div className="page-panel" style={{ gridColumn: '1 / -1' }}>
-          {!isOwnProject() && currentUser && (
-            <div style={{
-              marginBottom: '1.5rem',
-              padding: '1rem 1.25rem',
-              background: 'rgba(250, 204, 21, 0.12)',
-              border: '1px solid rgba(250, 204, 21, 0.4)',
-              borderRadius: '0.6rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem'
-            }}>
-              <p style={{ margin: 0, fontSize: '0.95rem', color: '#854d0e' }}>
-                You haven&apos;t purchased this project yet. Complete payment to access the full dashboard and track progress.
-              </p>
-              <Link
-                to={`/client/${projectId}/payment`}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: '#ea580c',
-                  color: '#fff',
-                  borderRadius: '0.5rem',
-                  fontWeight: '600',
-                  fontSize: '0.9rem',
-                  textDecoration: 'none'
-                }}
-              >
-                Go to Payment
-              </Link>
-            </div>
-          )}
           {/* Revisions Section */}
-          {isOwnProject() && project.payment_status === 'paid' && (
+          {project.payment_status === 'paid' && (
             <div style={{
               marginBottom: '2rem',
               padding: '1.5rem',
