@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { api } from '../services/api'
+import { api, getApiBaseUrl } from '../services/api'
 import { Modal } from '../components/Modal'
 import { UpdateStatusForm } from '../components/UpdateStatusForm'
 
@@ -211,7 +211,7 @@ export function CollaboratorProjectDetailPage() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/projects/${projectId}/status`,
+        `${getApiBaseUrl()}/projects/${projectId}/status`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -545,7 +545,7 @@ export function CollaboratorProjectDetailPage() {
                           return
                         }
 
-                        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/${projectId}/invoice`
+                        const apiUrl = `${getApiBaseUrl()}/upload/${projectId}/invoice`
                         console.log('Fetching invoice from:', apiUrl)
                         
                         const response = await fetch(apiUrl, {

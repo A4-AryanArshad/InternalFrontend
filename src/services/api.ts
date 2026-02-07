@@ -2,6 +2,11 @@
 // If VITE_API_URL is set, it will override this; otherwise it uses the deployed backend.
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://internal-backend-001-qdoi.vercel.app/api'
 
+/** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
+export function getApiBaseUrl(): string {
+  return API_BASE_URL
+}
+
 class ApiService {
   private getToken(): string | null {
     return localStorage.getItem('auth_token')

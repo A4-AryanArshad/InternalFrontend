@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from '../components/Modal'
 import { UpdateStatusForm } from '../components/UpdateStatusForm'
 import { AssignCollaboratorForm } from '../components/AssignCollaboratorForm'
-import { api } from '../services/api'
+import { api, getApiBaseUrl } from '../services/api'
 
 export function AdminProjectDetailPage() {
   const { projectId } = useParams()
@@ -41,7 +41,7 @@ export function AdminProjectDetailPage() {
     if (!projectId) return
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/projects/${projectId}/status`, {
+      const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes }),
@@ -160,7 +160,7 @@ export function AdminProjectDetailPage() {
     if (!projectId) return
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/payments/${projectId}/verify`, {
+      const response = await fetch(`${getApiBaseUrl()}/payments/${projectId}/verify`, {
         method: 'GET',
       })
       const responseData: any = await response.json()
@@ -176,7 +176,7 @@ export function AdminProjectDetailPage() {
         // If verification fails, try manual mark as paid
         const confirmMark = confirm('Could not verify payment automatically. Did the client complete payment? Click OK to mark as paid manually.')
         if (confirmMark) {
-          const markResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/payments/${projectId}/mark-paid`, {
+          const markResponse = await fetch(`${getApiBaseUrl()}/payments/${projectId}/mark-paid`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
           })
@@ -735,7 +735,7 @@ export function AdminProjectDetailPage() {
                           return
                         }
 
-                        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/${projectId}/invoice`
+                        const apiUrl = `${getApiBaseUrl()}/upload/${projectId}/invoice`
                         console.log('Fetching invoice from:', apiUrl)
                         
                         const response = await fetch(apiUrl, {

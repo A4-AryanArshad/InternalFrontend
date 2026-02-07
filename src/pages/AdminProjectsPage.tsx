@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { Modal } from '../components/Modal'
 import { NewProjectForm } from '../components/NewProjectForm'
-import { api } from '../services/api'
+import { api, getApiBaseUrl } from '../services/api'
 
 export function AdminProjectsPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
@@ -371,7 +371,7 @@ export function AdminProjectsPage() {
                                 return
                               }
 
-                              const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/upload/${invoice.projects[0]._id}/invoice`
+                              const apiUrl = `${getApiBaseUrl()}/upload/${invoice.projects[0]._id}/invoice`
                               const response = await fetch(apiUrl, {
                                 method: 'GET',
                                 headers: { 'Authorization': `Bearer ${token}` },
