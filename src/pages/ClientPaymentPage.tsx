@@ -37,9 +37,15 @@ export function ClientPaymentPage() {
 
   const getAmount = () => {
     if (!project) return 0
-    if (project.custom_quote_amount) {
+    // Admin-created custom project
+    if (project.custom_quote_amount != null && project.custom_quote_amount > 0) {
       return project.custom_quote_amount
     }
+    // Admin-created simple project (price stored on project)
+    if (project.service_price != null && project.service_price > 0) {
+      return project.service_price
+    }
+    // Client chose a service from catalog (selected_service populated)
     if (project.selected_service && typeof project.selected_service === 'object') {
       return project.selected_service.price || 0
     }
@@ -48,8 +54,11 @@ export function ClientPaymentPage() {
 
   const getServiceName = () => {
     if (!project) return 'Service'
-    if (project.custom_quote_amount) {
+    if (project.custom_quote_amount != null && project.custom_quote_amount > 0) {
       return 'Custom Quote'
+    }
+    if (project.service_name) {
+      return project.service_name
     }
     if (project.selected_service && typeof project.selected_service === 'object') {
       return project.selected_service.name || 'Service'
@@ -60,10 +69,17 @@ export function ClientPaymentPage() {
   const handleCheckout = async () => {
     if (!projectId || !project) return
 
+    const amount = getAmount()
+    if (amount <= 0) {
+      alert('No payment amount set for this project. Please contact support.')
+      return
+    }
+
     setProcessing(true)
     try {
+      // Use serviceId only when client selected a service from catalog; otherwise send amount
       const serviceId = project.selected_service?._id || project.selected_service
-      const customAmount = project.custom_quote_amount
+      const customAmount = serviceId ? undefined : amount
 
       const response: any = await api.createCheckoutSession(projectId, {
         serviceId: serviceId || undefined,
