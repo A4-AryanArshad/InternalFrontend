@@ -410,6 +410,7 @@ export function AdminProjectsPage() {
                                   if (response.success) {
                                     alert('Monthly invoice approved successfully!')
                                     await loadMonthlyInvoices()
+                                    await loadProjects()
                                   } else {
                                     throw new Error(response.message || 'Failed to approve invoice')
                                   }
@@ -438,6 +439,7 @@ export function AdminProjectsPage() {
                                   if (response.success) {
                                     alert('Monthly invoice rejected.')
                                     await loadMonthlyInvoices()
+                                    await loadProjects()
                                   } else {
                                     throw new Error(response.message || 'Failed to reject invoice')
                                   }
@@ -469,6 +471,7 @@ export function AdminProjectsPage() {
                                 if (response.success) {
                                   alert(`Monthly invoice paid successfully! Amount: $${response.data.amount.toLocaleString()} (${response.data.project_count} projects)`)
                                   await loadMonthlyInvoices()
+                                  await loadProjects()
                                 } else {
                                   throw new Error(response.message || 'Failed to pay collaborator')
                                 }

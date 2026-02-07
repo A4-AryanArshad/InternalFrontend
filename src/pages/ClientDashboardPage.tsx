@@ -15,13 +15,20 @@ export function ClientDashboardPage() {
 
   useEffect(() => {
     if (projectId) {
-      loadProjectData()
+      loadProjectData(false)
     }
   }, [projectId])
 
-  const loadProjectData = async () => {
+  // Auto-refresh when status or payment changes (e.g. admin updates or collaborator paid)
+  useEffect(() => {
+    if (!projectId) return
+    const interval = setInterval(() => loadProjectData(true), 30000)
+    return () => clearInterval(interval)
+  }, [projectId])
+
+  const loadProjectData = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const response: any = await api.getProjectDetails(projectId!)
       if (response.success) {
         setProject(response.data.project)
@@ -29,7 +36,7 @@ export function ClientDashboardPage() {
         setImages(response.data.images || [])
       }
     } catch (error) {
-      console.error('Failed to load project:', error)
+      if (!silent) console.error('Failed to load project:', error)
     } finally {
       setLoading(false)
     }
@@ -128,7 +135,7 @@ export function ClientDashboardPage() {
         setIsRevisionModalOpen(false)
         setRevisionDescription('')
         // Reload project data
-        await loadProjectData()
+        await loadProjectData(false)
       } else {
         alert(response.message || 'Failed to claim revision')
       }

@@ -18,12 +18,18 @@ export function ClientAllProjectsPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    loadProjects()
+    loadProjects(false)
   }, [])
 
-  const loadProjects = async () => {
+  // Auto-refresh when project status or payment changes
+  useEffect(() => {
+    const interval = setInterval(() => loadProjects(true), 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadProjects = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError(null)
 
       // Always load simple projects (public, no auth required)
@@ -150,7 +156,7 @@ export function ClientAllProjectsPage() {
         setShowRequestModal(false)
         setRequestData({ description: '', estimated_budget: '', preferred_timeline: '30 days' })
         // Reload projects in case a project was created
-        loadProjects()
+        loadProjects(false)
       } else {
         alert('Failed to submit request. Please try again.')
       }

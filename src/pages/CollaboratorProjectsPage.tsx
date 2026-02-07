@@ -35,9 +35,15 @@ export function CollaboratorProjectsPage() {
 
   // Initial load - only run once on mount
   useEffect(() => {
-    loadProjects()
+    loadProjects(false)
     loadStripeStatus()
     // loadInvoiceType will be called after Stripe status loads if needed
+  }, [])
+
+  // Auto-refresh when admin updates status or payment
+  useEffect(() => {
+    const interval = setInterval(() => loadProjects(true), 30000)
+    return () => clearInterval(interval)
   }, [])
 
   // Refresh Stripe status when returning from Stripe Connect
@@ -206,9 +212,9 @@ export function CollaboratorProjectsPage() {
     }
   }
 
-  const loadProjects = async () => {
+  const loadProjects = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const response: any = await api.getMyCollaboratorProjects()
       if (response.success) {
         const assignedProjects = response.data || []
@@ -224,7 +230,7 @@ export function CollaboratorProjectsPage() {
         setProjects(assignedProjects)
       }
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      if (!silent) console.error('Failed to load projects:', error)
     } finally {
       setLoading(false)
     }

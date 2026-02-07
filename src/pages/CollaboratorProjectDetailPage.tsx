@@ -17,13 +17,20 @@ export function CollaboratorProjectDetailPage() {
 
   useEffect(() => {
     if (projectId) {
-      loadProjectData()
+      loadProjectData(false)
     }
   }, [projectId])
 
-  const loadProjectData = async () => {
+  // Auto-refresh when admin updates status or payment
+  useEffect(() => {
+    if (!projectId) return
+    const interval = setInterval(() => loadProjectData(true), 30000)
+    return () => clearInterval(interval)
+  }, [projectId])
+
+  const loadProjectData = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const response: any = await api.getProjectDetails(projectId!)
       if (response.success) {
         setProject(response.data.project)
@@ -31,7 +38,7 @@ export function CollaboratorProjectDetailPage() {
         setImages(response.data.images || [])
       }
     } catch (error) {
-      console.error('Failed to load project:', error)
+      if (!silent) console.error('Failed to load project:', error)
     } finally {
       setLoading(false)
     }
