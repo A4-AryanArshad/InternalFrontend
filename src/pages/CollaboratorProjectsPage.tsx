@@ -40,9 +40,9 @@ export function CollaboratorProjectsPage() {
     // loadInvoiceType will be called after Stripe status loads if needed
   }, [])
 
-  // Auto-refresh when admin updates status or payment
+  // Auto-refresh when admin approves/rejects invoice or updates status (no manual refresh needed)
   useEffect(() => {
-    const interval = setInterval(() => loadProjects(true), 30000)
+    const interval = setInterval(() => loadProjects(true), 15000)
     return () => clearInterval(interval)
   }, [])
 

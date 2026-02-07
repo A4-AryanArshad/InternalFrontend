@@ -8,14 +8,9 @@ export function AdminProjectsPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'all' | 'paid' | 'monthly-invoices' | 'invoices-payments'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'paid' | 'monthly-invoices'>('all')
   const [monthlyInvoices, setMonthlyInvoices] = useState<any[]>([])
   const [loadingMonthlyInvoices, setLoadingMonthlyInvoices] = useState(false)
-  const [invoicesOverview, setInvoicesOverview] = useState<{
-    acceptedInvoices: Array<{ id: string; type: string; label: string; collaboratorName: string; amount: number; paid: boolean; paidAt?: string; projectId?: string }>
-    byCollaborator: Array<{ collaboratorId: string; collaboratorName: string; totalPaid: number; totalLeftToPay: number }>
-  } | null>(null)
-  const [loadingInvoicesOverview, setLoadingInvoicesOverview] = useState(false)
 
   // Frontend base URL used for client access links
   const frontendBaseUrl =
@@ -35,36 +30,16 @@ export function AdminProjectsPage() {
     const interval = setInterval(() => {
       loadProjects(true)
       if (activeTab === 'monthly-invoices') loadMonthlyInvoices()
-      if (activeTab === 'invoices-payments') loadInvoicesOverview()
     }, 30000)
     return () => clearInterval(interval)
   }, [activeTab])
 
-  // Reload monthly invoices or invoices overview when tab is clicked
+  // Reload monthly invoices when tab is clicked (in case new invoices were added)
   useEffect(() => {
     if (activeTab === 'monthly-invoices') {
       loadMonthlyInvoices()
-    } else if (activeTab === 'invoices-payments') {
-      loadInvoicesOverview()
     }
   }, [activeTab])
-
-  const loadInvoicesOverview = async () => {
-    try {
-      setLoadingInvoicesOverview(true)
-      const response: any = await api.getAcceptedInvoicesOverview()
-      if (response.success && response.data) {
-        setInvoicesOverview(response.data)
-      } else {
-        setInvoicesOverview({ acceptedInvoices: [], byCollaborator: [] })
-      }
-    } catch (e) {
-      console.error('Failed to load invoices overview:', e)
-      setInvoicesOverview({ acceptedInvoices: [], byCollaborator: [] })
-    } finally {
-      setLoadingInvoicesOverview(false)
-    }
-  }
 
   const loadMonthlyInvoices = async () => {
     try {
@@ -141,9 +116,9 @@ export function AdminProjectsPage() {
     <section className="page">
       <header className="page-header">
         <div className="page-kicker">Admin Dashboard</div>
-        <h1 className="page-title">All Projects</h1>
+        <h1 className="page-title">Projects</h1>
         <p className="page-subtitle">
-          Manage all client projects, review briefings, and track progress.
+          Predefined projects are visible to everyone via the client link. Manage paid orders and monthly invoices in the tabs below.
         </p>
         <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <Link
@@ -177,6 +152,22 @@ export function AdminProjectsPage() {
             }}
           >
             Manage Collaborators
+          </Link>
+          <Link
+            to="/admin/notifications"
+            style={{
+              display: 'inline-block',
+              padding: '0.6rem 1.2rem',
+              background: 'rgba(59, 130, 246, 0.1)',
+              color: '#1d4ed8',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '0.5rem',
+              textDecoration: 'none',
+              fontWeight: '500',
+              fontSize: '0.85rem'
+            }}
+          >
+            Notifications
           </Link>
         </div>
       </header>
@@ -263,7 +254,11 @@ export function AdminProjectsPage() {
                   transition: 'all 0.2s'
                 }}
               >
-                All Projects ({loading ? '...' : projects.length})
+                Predefined Project ({loading ? '...' : (() => {
+                  const simple = projects.filter((p: any) => p.project_type === 'simple')
+                  const keys = new Set(simple.map((p: any) => `${p.name}|${p.service_price ?? p.custom_quote_amount ?? ''}`))
+                  return keys.size
+                })()})
               </button>
               <button
                 onClick={() => setActiveTab('paid')}
@@ -297,22 +292,6 @@ export function AdminProjectsPage() {
               >
                 Monthly Invoices ({loadingMonthlyInvoices ? '...' : monthlyInvoices.length})
               </button>
-              <button
-                onClick={() => setActiveTab('invoices-payments')}
-                style={{
-                  padding: '0.6rem 1.2rem',
-                  background: activeTab === 'invoices-payments' ? '#7c3aed' : 'transparent',
-                  color: activeTab === 'invoices-payments' ? '#ffffff' : '#6b7280',
-                  border: `1px solid ${activeTab === 'invoices-payments' ? '#7c3aed' : 'rgba(148, 163, 184, 0.4)'}`,
-                  borderRadius: '0.5rem',
-                  fontWeight: '500',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Invoices & Payments
-              </button>
             </div>
             <button 
               onClick={() => setIsNewProjectOpen(true)}
@@ -331,96 +310,7 @@ export function AdminProjectsPage() {
             </button>
           </div>
 
-          {activeTab === 'invoices-payments' ? (
-            loadingInvoicesOverview ? (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <p>Loading invoices & payments...</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <div style={{ background: 'white', border: '1px solid rgba(226, 232, 240, 0.8)', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                  <h3 style={{ margin: 0, padding: '1rem 1.25rem', background: 'rgba(124, 58, 237, 0.1)', borderBottom: '1px solid rgba(226, 232, 240, 0.8)', fontSize: '1rem', fontWeight: '600', color: '#0f172a' }}>
-                    All accepted invoices
-                  </h3>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ textAlign: 'left', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Invoice</th>
-                          <th style={{ textAlign: 'left', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Collaborator</th>
-                          <th style={{ textAlign: 'right', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Amount</th>
-                          <th style={{ textAlign: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Paid</th>
-                          <th style={{ textAlign: 'left', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Date paid</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(invoicesOverview?.acceptedInvoices || []).map((inv) => (
-                          <tr key={inv.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '0.75rem 1rem', color: '#0f172a' }}>
-                              {inv.projectId ? (
-                                <Link to={`/admin/projects/${inv.projectId}`} style={{ color: '#7c3aed', textDecoration: 'none', fontWeight: '500' }}>{inv.label}</Link>
-                              ) : (
-                                inv.label
-                              )}
-                            </td>
-                            <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>{inv.collaboratorName}</td>
-                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${inv.amount.toLocaleString()}</td>
-                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                              <span style={{
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.8rem',
-                                fontWeight: '500',
-                                background: inv.paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(250, 204, 21, 0.2)',
-                                color: inv.paid ? '#16a34a' : '#b45309'
-                              }}>
-                                {inv.paid ? 'Yes' : 'No'}
-                              </span>
-                            </td>
-                            <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.85rem' }}>
-                              {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {(!invoicesOverview?.acceptedInvoices?.length) && (
-                    <p style={{ margin: 0, padding: '1.5rem', color: '#64748b', textAlign: 'center' }}>No accepted invoices yet.</p>
-                  )}
-                </div>
-
-                <div style={{ background: 'white', border: '1px solid rgba(226, 232, 240, 0.8)', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                  <h3 style={{ margin: 0, padding: '1rem 1.25rem', background: 'rgba(34, 197, 94, 0.08)', borderBottom: '1px solid rgba(226, 232, 240, 0.8)', fontSize: '1rem', fontWeight: '600', color: '#0f172a' }}>
-                    Amount paid & left to pay per collaborator
-                  </h3>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ textAlign: 'left', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Collaborator</th>
-                          <th style={{ textAlign: 'right', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Total paid</th>
-                          <th style={{ textAlign: 'right', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', fontWeight: '600', color: '#475569' }}>Left to pay</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(invoicesOverview?.byCollaborator || []).map((c) => (
-                          <tr key={c.collaboratorId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td style={{ padding: '0.75rem 1rem', color: '#0f172a', fontWeight: '500' }}>{c.collaboratorName}</td>
-                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: '#16a34a', fontWeight: '600' }}>${c.totalPaid.toLocaleString()}</td>
-                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: c.totalLeftToPay > 0 ? '#ea580c' : '#64748b', fontWeight: '600' }}>${c.totalLeftToPay.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {(!invoicesOverview?.byCollaborator?.length) && (
-                    <p style={{ margin: 0, padding: '1.5rem', color: '#64748b', textAlign: 'center' }}>No collaborator payment data yet.</p>
-                  )}
-                </div>
-              </div>
-            )
-          ) : activeTab === 'monthly-invoices' ? (
+          {activeTab === 'monthly-invoices' ? (
             loadingMonthlyInvoices ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
                 <p>Loading monthly invoices...</p>
@@ -656,174 +546,234 @@ export function AdminProjectsPage() {
               <p>Loading projects...</p>
             </div>
           ) : (() => {
-            const filteredProjects = activeTab === 'paid' 
-              ? projects.filter(p => p.payment_status === 'paid')
-              : projects
-            
+            const predefinedProjects = projects.filter((p: any) => p.project_type === 'simple')
+            const filteredProjects = activeTab === 'paid'
+              ? projects.filter((p: any) => p.payment_status === 'paid')
+              : predefinedProjects
+
             if (filteredProjects.length === 0) {
               return (
                 <div style={{ textAlign: 'center', padding: '2rem' }}>
                   <p style={{ color: '#6b7280' }}>
-                    {activeTab === 'paid' 
-                      ? 'No paid orders yet.' 
-                      : 'No projects yet. Create your first project!'}
+                    {activeTab === 'paid'
+                      ? 'No paid orders yet.'
+                      : 'No predefined projects yet. Create one with "+ New Project" to show it on the client link.'}
                   </p>
                 </div>
               )
             }
 
+            // Predefined tab: same neat card layout as client (/client/all) – one card per unique service (name + price)
+            if (activeTab === 'all') {
+              const serviceKey = (p: any) => `${p.name}|${p.service_price ?? p.custom_quote_amount ?? ''}`
+              const byKey: Record<string, any> = {}
+              predefinedProjects.forEach((p: any) => {
+                const key = serviceKey(p)
+                if (!byKey[key]) byKey[key] = p
+              })
+              const catalogList = Object.values(byKey)
+              return (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: '1.5rem'
+                }}>
+                  {catalogList.map((project: any) => {
+                    const projectId = project._id || project.id
+                    const cardStyle = {
+                      display: 'flex',
+                      flexDirection: 'column' as const,
+                      padding: '1.5rem',
+                      background: 'white',
+                      border: '1px solid rgba(226, 232, 240, 0.8)',
+                      borderRadius: '1rem',
+                      textDecoration: 'none' as const,
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer' as const,
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      height: '100%' as const,
+                      color: 'inherit',
+                    }
+                    return (
+                      <Link
+                        key={projectId}
+                        to={`/admin/projects/${projectId}`}
+                        style={cardStyle}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#ea580c'
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
+                          e.currentTarget.style.transform = 'translateY(-2px)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                          e.currentTarget.style.transform = 'translateY(0)'
+                        }}
+                      >
+                        <div style={{ marginBottom: '1rem' }}>
+                          <h4 style={{
+                            margin: '0 0 0.5rem',
+                            fontSize: '1.25rem',
+                            fontWeight: '600',
+                            color: '#0f172a',
+                            lineHeight: 1.3,
+                          }}>
+                            {project.name}
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+                            Simple Project
+                          </p>
+                        </div>
+                        <div style={{
+                          marginBottom: '1rem',
+                          paddingBottom: '1rem',
+                          borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+                        }}>
+                          <div style={{
+                            fontSize: '1.75rem',
+                            fontWeight: '700',
+                            color: '#ea580c',
+                            marginBottom: '0.5rem',
+                          }}>
+                            {formatAmount(project)}
+                          </div>
+                          {project.delivery_timeline && (
+                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                              Delivery: {project.delivery_timeline}
+                            </p>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
+                            View project →
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )
+            }
+
+            // Paid tab: admin-style cards with status, client, collaborator
             return (
-              <div style={{ 
-                display: 'grid', 
+              <div style={{
+                display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                 gap: '1.5rem'
               }}>
-                {filteredProjects.map((project) => (
-                <Link
-                  key={project._id || project.id}
-                  to={`/admin/projects/${project._id || project.id}`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '1.5rem',
-                    background: 'white',
-                    border: '1px solid rgba(226, 232, 240, 0.8)',
-                    borderRadius: '1rem',
-                    textDecoration: 'none',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                    height: '100%'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#ea580c'
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
-                    e.currentTarget.style.transform = 'translateY(0)'
-                  }}
-                >
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                      <h4 style={{ 
-                        margin: 0, 
-                        fontSize: '1.25rem', 
-                        fontWeight: '600',
-                        color: '#0f172a',
-                        lineHeight: '1.3'
-                      }}>
-                        {project.name}
-                      </h4>
-                      {!project.assigned_collaborator && (
-                        <span style={{
-                          padding: '0.25rem 0.6rem',
-                          background: 'rgba(234, 88, 12, 0.15)',
-                          border: '1px solid rgba(234, 88, 12, 0.4)',
-                          borderRadius: '999px',
-                          fontSize: '0.7rem',
-                          fontWeight: '600',
-                          color: '#ea580c',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.02em'
-                        }}>
-                          New
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ 
-                      margin: 0, 
-                      fontSize: '0.875rem', 
-                      color: '#64748b',
-                      lineHeight: '1.5'
-                    }}>
-                      {project.client_name}
-                    </p>
-                  </div>
-
-                  <div style={{ 
-                    marginBottom: '1rem',
-                    paddingBottom: '1rem',
-                    borderBottom: '1px solid rgba(226, 232, 240, 0.8)'
-                  }}>
-                    <div style={{ 
-                      fontSize: '1.75rem', 
-                      fontWeight: '700', 
-                      color: '#ea580c',
-                      marginBottom: '0.5rem'
-                    }}>
-                      {formatAmount(project)}
-                    </div>
-                    {project.delivery_timeline && (
-                      <p style={{ 
-                        margin: 0, 
-                        fontSize: '0.875rem', 
-                        color: '#64748b'
-                      }}>
-                        Delivery: {project.delivery_timeline}
-                      </p>
-                    )}
-                  </div>
-
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    gap: '0.5rem',
-                    marginTop: 'auto'
-                  }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span style={{
-                        padding: '0.375rem 0.75rem',
-                        background: `${getStatusColor(project.status)}15`,
-                        border: `1px solid ${getStatusColor(project.status)}30`,
-                        borderRadius: '0.5rem',
-                        fontSize: '0.75rem',
-                        color: getStatusColor(project.status),
-                        fontWeight: '500'
-                      }}>
-                        {getStatusLabel(project.status)}
-                      </span>
-                      <span style={{
-                        padding: '0.375rem 0.75rem',
-                        background: `${getPaymentColor(project.payment_status)}15`,
-                        border: `1px solid ${getPaymentColor(project.payment_status)}30`,
-                        borderRadius: '0.5rem',
-                        fontSize: '0.75rem',
-                        color: getPaymentColor(project.payment_status),
-                        fontWeight: '500'
-                      }}>
-                        {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
-                      </span>
-                    </div>
-                    <p style={{ 
-                      margin: '0.5rem 0 0', 
-                      fontSize: '0.75rem', 
-                      color: '#94a3b8'
-                    }}>
-                      Started {formatDate(project.created_at)}
-                    </p>
-                    {project.assigned_collaborator && (
-                      <p style={{ 
-                        margin: '0.5rem 0 0', 
-                        fontSize: '0.75rem', 
-                        color: '#64748b'
-                      }}>
-                        Collaborator: {typeof project.assigned_collaborator === 'object' 
-                          ? `${project.assigned_collaborator.first_name} ${project.assigned_collaborator.last_name}`
-                          : project.assigned_collaborator}
-                        {project.collaborator_payment_amount && (
-                          <span style={{ marginLeft: '0.5rem', color: '#22c55e' }}>
-                            (${project.collaborator_payment_amount.toLocaleString()})
+                {filteredProjects.map((project: any) => (
+                  <Link
+                    key={project._id || project.id}
+                    to={`/admin/projects/${project._id || project.id}`}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '1.5rem',
+                      background: 'white',
+                      border: '1px solid rgba(226, 232, 240, 0.8)',
+                      borderRadius: '1rem',
+                      textDecoration: 'none',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      height: '100%',
+                      color: 'inherit',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#ea580c'
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                      e.currentTarget.style.transform = 'translateY(0)'
+                    }}
+                  >
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                        <h4 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', color: '#0f172a', lineHeight: 1.3 }}>
+                          {project.name}
+                        </h4>
+                        {!project.assigned_collaborator && (
+                          <span style={{
+                            padding: '0.25rem 0.6rem',
+                            background: 'rgba(234, 88, 12, 0.15)',
+                            border: '1px solid rgba(234, 88, 12, 0.4)',
+                            borderRadius: '999px',
+                            fontSize: '0.7rem',
+                            fontWeight: '600',
+                            color: '#ea580c',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.02em',
+                          }}>
+                            New
                           </span>
                         )}
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+                        {project.client_name}
                       </p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
+                    </div>
+                    <div style={{
+                      marginBottom: '1rem',
+                      paddingBottom: '1rem',
+                      borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+                    }}>
+                      <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>
+                        {formatAmount(project)}
+                      </div>
+                      {project.delivery_timeline && (
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                          Delivery: {project.delivery_timeline}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: '0.375rem 0.75rem',
+                          background: `${getStatusColor(project.status)}15`,
+                          border: `1px solid ${getStatusColor(project.status)}30`,
+                          borderRadius: '0.5rem',
+                          fontSize: '0.75rem',
+                          color: getStatusColor(project.status),
+                          fontWeight: '500',
+                        }}>
+                          {getStatusLabel(project.status)}
+                        </span>
+                        <span style={{
+                          padding: '0.375rem 0.75rem',
+                          background: `${getPaymentColor(project.payment_status)}15`,
+                          border: `1px solid ${getPaymentColor(project.payment_status)}30`,
+                          borderRadius: '0.5rem',
+                          fontSize: '0.75rem',
+                          color: getPaymentColor(project.payment_status),
+                          fontWeight: '500',
+                        }}>
+                          {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
+                        </span>
+                      </div>
+                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
+                        Started {formatDate(project.created_at)}
+                      </p>
+                      {project.assigned_collaborator && (
+                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                          Collaborator: {typeof project.assigned_collaborator === 'object'
+                            ? `${project.assigned_collaborator.first_name} ${project.assigned_collaborator.last_name}`
+                            : project.assigned_collaborator}
+                          {project.collaborator_payment_amount && (
+                            <span style={{ marginLeft: '0.5rem', color: '#22c55e' }}>
+                              (${project.collaborator_payment_amount.toLocaleString()})
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
             )
           })()}
         </div>

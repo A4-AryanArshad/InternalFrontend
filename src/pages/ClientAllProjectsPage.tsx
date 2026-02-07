@@ -1,12 +1,12 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import { Modal } from '../components/Modal'
 
 export function ClientAllProjectsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [projects, setProjects] = useState<any[]>([])
-  const [myProjectsById, setMyProjectsById] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
@@ -17,10 +17,20 @@ export function ClientAllProjectsPage() {
     preferred_timeline: '30 days'
   })
   const [submitting, setSubmitting] = useState(false)
+  const [startingProjectId, setStartingProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     loadProjects(false)
   }, [])
+
+  // Open request modal when navigated with state (e.g. from "Request custom offer" on access-denied page)
+  useEffect(() => {
+    const state = location.state as { openRequestModal?: boolean } | null
+    if (state?.openRequestModal) {
+      setShowRequestModal(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, location.pathname, navigate])
 
   // Auto-refresh when project status or payment changes
   useEffect(() => {
@@ -28,55 +38,73 @@ export function ClientAllProjectsPage() {
     return () => clearInterval(interval)
   }, [])
 
+  const getServiceKey = (p: any) => {
+    const name = p.name || ''
+    const price = p.service_price ?? p.custom_quote_amount ?? (p.selected_service?.price ?? '')
+    return `${name}|${price}`
+  }
+
   const loadProjects = async (silent = false) => {
     try {
       if (!silent) setLoading(true)
       setError(null)
 
+      // Always load all predefined (simple) services - these are the catalog
+      const simpleResponse: any = await api.getSimpleProjects()
+      const allSimple: any[] = simpleResponse.success ? (simpleResponse.data || []) : []
+
       if (api.isAuthenticated()) {
-        // Logged-in user: show ALL projects (catalog), and for each show whether this user paid or not
         try {
           const userResponse: any = await api.getCurrentUser()
-          if (userResponse.success) {
-            setUser(userResponse.data)
+          if (userResponse.success) setUser(userResponse.data)
+          const myResponse: any = await api.getMyProjects()
+          const myProjects: any[] = myResponse.success ? (myResponse.data || []) : []
+
+          // Build one list per service (like Fiverr gigs): each service once. If user already has this service, show theirs; else show any project as template (name/price). Multiple users can buy the same service.
+          const byKey: Record<string, { project: any; isMine: boolean }> = {}
+          const projectsByKey: Record<string, any[]> = {}
+          for (const p of allSimple) {
+            const key = getServiceKey(p)
+            if (!projectsByKey[key]) projectsByKey[key] = []
+            projectsByKey[key].push(p)
           }
-          const [simpleRes, myProjectsResponse] = await Promise.all([
-            api.getSimpleProjects(),
-            api.getMyProjects(),
-          ])
-          let catalog: any[] = []
-          if ((simpleRes as any).success) {
-            catalog = (simpleRes as any).data || []
+          for (const key of Object.keys(projectsByKey)) {
+            const group = projectsByKey[key]
+            const myProject = myProjects.find((m: any) => getServiceKey(m) === key)
+            byKey[key] = {
+              project: myProject || group[0],
+              isMine: !!myProject,
+            }
           }
-          const byId: Record<string, any> = {}
-          if ((myProjectsResponse as any).success) {
-            const myProjects = (myProjectsResponse as any).data || []
-            myProjects.forEach((p: any) => {
-              const id = p._id || p.id
-              if (id) byId[id] = p
-            })
+          let list: { project: any; isMine: boolean }[] = Object.values(byKey)
+          const simpleIds = new Set(list.map((x) => (x.project._id || x.project.id).toString()))
+          for (const m of myProjects) {
+            if (m.project_type === 'custom' && !simpleIds.has((m._id || m.id).toString())) {
+              list.push({ project: m, isMine: true })
+              simpleIds.add((m._id || m.id).toString())
+            }
           }
-          setMyProjectsById(byId)
-          const sorted = catalog.sort(
-            (a: any, b: any) => new Date((b.created_at || 0)).getTime() - new Date((a.created_at || 0)).getTime()
+          const sorted = list.sort((a, b) =>
+            new Date((b.project as any).created_at).getTime() - new Date((a.project as any).created_at).getTime()
           )
           setProjects(sorted)
         } catch (err: any) {
-          console.warn('Failed to load projects:', err)
-          setProjects([])
-          setMyProjectsById({})
+          console.warn('Failed to load your projects:', err)
+          const sorted = allSimple
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map((p: any) => ({ project: p, isMine: false }))
+          setProjects(sorted)
         }
       } else {
-        // Not logged in: show public simple projects (catalog) so visitors can browse
-        setMyProjectsById({})
-        setUser(null)
-        const simpleProjectsResponse: any = await api.getSimpleProjects()
-        let simpleProjects: any[] = []
-        if (simpleProjectsResponse.success) {
-          simpleProjects = simpleProjectsResponse.data || []
+        // Not logged in: show catalog deduped by service (name+price)
+        const byKey: Record<string, any> = {}
+        for (const p of allSimple) {
+          const key = getServiceKey(p)
+          if (!byKey[key]) byKey[key] = p
         }
-        const sorted = simpleProjects.sort(
-          (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        const list = Object.values(byKey).map((p: any) => ({ project: p, isMine: false }))
+        const sorted = list.sort((a: any, b: any) =>
+          new Date((b.project as any).created_at).getTime() - new Date((a.project as any).created_at).getTime()
         )
         setProjects(sorted)
       }
@@ -84,6 +112,23 @@ export function ClientAllProjectsPage() {
       setError(err.message || 'Failed to load projects')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleStartService = async (templateProjectId: string) => {
+    if (startingProjectId) return
+    setStartingProjectId(templateProjectId)
+    try {
+      const res = await api.startFromCatalog(templateProjectId)
+      if (res.success && res.data) {
+        const id = (res.data as any)._id || (res.data as any).id
+        if (id) navigate(`/client/${id}`)
+      }
+    } catch (err) {
+      console.error(err)
+      setStartingProjectId(null)
+    } finally {
+      setStartingProjectId(null)
     }
   }
 
@@ -271,40 +316,35 @@ export function ClientAllProjectsPage() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
               gap: '1.5rem'
             }}>
-              {projects.map((project) => {
+              {projects.map((item) => {
+                const project = item.project
+                const isMine = item.isMine
                 const projectId = project._id || project.id
-                const myProject = user ? myProjectsById[projectId] : null
-                const status = user ? (myProject?.status ?? 'pending') : 'pending'
-                const paymentStatus = user ? (myProject?.payment_status ?? 'pending') : 'pending'
-                const startedAt = myProject?.created_at
-                return (
-                <Link
-                  key={projectId}
-                  to={`/client/${projectId}`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '1.5rem',
-                    background: 'white',
-                    border: '1px solid rgba(226, 232, 240, 0.8)',
-                    borderRadius: '1rem',
-                    textDecoration: 'none',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                    height: '100%'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#ea580c'
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
-                    e.currentTarget.style.transform = 'translateY(0)'
-                  }}
-                >
+                const cardStyle = {
+                  display: 'flex',
+                  flexDirection: 'column' as const,
+                  padding: '1.5rem',
+                  background: 'white',
+                  border: '1px solid rgba(226, 232, 240, 0.8)',
+                  borderRadius: '1rem',
+                  textDecoration: 'none' as const,
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer' as const,
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  height: '100%' as const,
+                }
+                const handleMouseEnter = (e: React.MouseEvent<HTMLElement>) => {
+                  e.currentTarget.style.borderColor = '#ea580c'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                }
+                const handleMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
+                  e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }
+                const cardContent = (
+                  <>
                   <div style={{ marginBottom: '1rem' }}>
                     <h4 style={{ 
                       margin: '0 0 0.5rem', 
@@ -355,39 +395,102 @@ export function ClientAllProjectsPage() {
                     gap: '0.5rem',
                     marginTop: 'auto'
                   }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span style={{
-                        padding: '0.375rem 0.75rem',
-                        background: `${getStatusColor(status)}15`,
-                        border: `1px solid ${getStatusColor(status)}30`,
-                        borderRadius: '0.5rem',
-                        fontSize: '0.75rem',
-                        color: getStatusColor(status),
-                        fontWeight: '500'
-                      }}>
-                        {getStatusLabel(status)}
-                      </span>
-                      <span style={{
-                        padding: '0.375rem 0.75rem',
-                        background: paymentStatus === 'paid' ? '#22c55e15' : '#facc1515',
-                        border: `1px solid ${paymentStatus === 'paid' ? '#22c55e30' : '#facc1530'}`,
-                        borderRadius: '0.5rem',
-                        fontSize: '0.75rem',
-                        color: paymentStatus === 'paid' ? '#22c55e' : '#facc15',
-                        fontWeight: '500'
-                      }}>
-                        {user ? (paymentStatus === 'paid' ? '✓ Paid' : 'Unpaid') : 'Available'}
-                      </span>
-                    </div>
-                    <p style={{ 
-                      margin: '0.5rem 0 0', 
-                      fontSize: '0.75rem', 
-                      color: '#94a3b8'
-                    }}>
-                      {user ? (startedAt ? `Started ${formatDate(startedAt)}` : 'Not started') : 'Sign up or log in to see your projects'}
-                    </p>
+                    {api.isAuthenticated() && user && project.client_email === user.email && (
+                      <>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{
+                            padding: '0.375rem 0.75rem',
+                            background: `${getStatusColor(project.status)}15`,
+                            border: `1px solid ${getStatusColor(project.status)}30`,
+                            borderRadius: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: getStatusColor(project.status),
+                            fontWeight: '500'
+                          }}>
+                            {getStatusLabel(project.status)}
+                          </span>
+                          <span style={{
+                            padding: '0.375rem 0.75rem',
+                            background: project.payment_status === 'paid' ? '#22c55e15' : '#facc1515',
+                            border: `1px solid ${project.payment_status === 'paid' ? '#22c55e30' : '#facc1530'}`,
+                            borderRadius: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: project.payment_status === 'paid' ? '#22c55e' : '#facc15',
+                            fontWeight: '500'
+                          }}>
+                            {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
+                          </span>
+                        </div>
+                        <p style={{ 
+                          margin: '0.5rem 0 0', 
+                          fontSize: '0.75rem', 
+                          color: '#94a3b8'
+                        }}>
+                          Started {formatDate(project.created_at)}
+                        </p>
+                      </>
+                    )}
+                    {api.isAuthenticated() && user && !isMine && project.project_type !== 'custom' && (
+                      <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
+                        Click to buy this service →
+                      </p>
+                    )}
+                    {!api.isAuthenticated() && (
+                      <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
+                        Sign in to select this project →
+                      </p>
+                    )}
                   </div>
-                </Link>
+                </>
+                )
+                if (!api.isAuthenticated()) {
+                  return (
+                    <div
+                      key={projectId}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/login?redirect=/client/all`)}
+                      onKeyDown={(e) => e.key === 'Enter' && navigate(`/login?redirect=/client/all`)}
+                      style={cardStyle}
+                      onMouseEnter={handleMouseEnter}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      {cardContent}
+                    </div>
+                  )
+                }
+                if (isMine) {
+                  return (
+                    <Link
+                      key={projectId}
+                      to={`/client/${projectId}`}
+                      style={cardStyle}
+                      onMouseEnter={handleMouseEnter}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      {cardContent}
+                    </Link>
+                  )
+                }
+                const isStarting = startingProjectId === projectId
+                return (
+                  <div
+                    key={projectId}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleStartService(projectId)}
+                    onKeyDown={(e) => e.key === 'Enter' && !isStarting && handleStartService(projectId)}
+                    style={{ ...cardStyle, opacity: isStarting ? 0.8 : 1, cursor: isStarting ? 'wait' : 'pointer' }}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    {cardContent}
+                    {isStarting && (
+                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
+                        Opening…
+                      </p>
+                    )}
+                  </div>
                 )
               })}
             </div>
